@@ -33,25 +33,24 @@ func ParseFloat64Or(str string, deflt float64) float64 {
 }
 
 func ParseType(str string, t reflect.Type) (interface{}, error) {
-
 	switch t.String() {
 	case "string": // If its string just return it
 		return str, nil
 	case "int8":
 		i, err := strconv.ParseInt(str, 10, 8)
-		if err != nil {
+		if err == nil {
 			return int8(i), nil
 		}
 		return nil, err
 	case "int16":
 		i, err := strconv.ParseInt(str, 10, 16)
-		if err != nil {
+		if err == nil {
 			return int16(i), nil
 		}
 		return nil, err
 	case "int":
 		i, err := strconv.ParseInt(str, 10, 32)
-		if err != nil {
+		if err == nil {
 			return int(i), nil
 		}
 		return nil, err
@@ -59,19 +58,19 @@ func ParseType(str string, t reflect.Type) (interface{}, error) {
 		return strconv.ParseInt(str, 10, 64)
 	case "uint8":
 		i, err := strconv.ParseUint(str, 10, 8)
-		if err != nil {
+		if err == nil {
 			return uint8(i), nil
 		}
 		return nil, err
 	case "uint16":
 		i, err := strconv.ParseUint(str, 10, 16)
-		if err != nil {
+		if err == nil {
 			return uint16(i), nil
 		}
 		return nil, err
 	case "uint":
 		i, err := strconv.ParseUint(str, 10, 32)
-		if err != nil {
+		if err == nil {
 			return uint(i), nil
 		}
 		return nil, err
@@ -79,7 +78,7 @@ func ParseType(str string, t reflect.Type) (interface{}, error) {
 		return strconv.ParseUint(str, 10, 64)
 	case "float32":
 		f, err := strconv.ParseFloat(str, 32)
-		if err != nil {
+		if err == nil {
 			return float32(f), nil
 		}
 		return nil, err

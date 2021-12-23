@@ -33,5 +33,7 @@ require (
 
 require (
 	github.com/araddon/dateparse v0.0.0-20210429162001-6b43995a97de
+	github.com/asaskevich/govalidator v0.0.0-20210307081110-f21760c49a8d
 	github.com/azer/snakecase v1.0.0 // indirect
+	github.com/bugsnag/osext v0.0.0-20130617224835-0dd3f918b21b
 )
