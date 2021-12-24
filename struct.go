@@ -61,6 +61,9 @@ func StructWalk(modelOrType interface{}, c WalkConfig, data Map, action FieldOp,
 				if e != nil {
 					errs = append(errs, e...)
 				}
+				if len(new) > 0 {
+					data[fldName] = new
+				}
 			}
 
 		} else {
