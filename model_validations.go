@@ -199,6 +199,10 @@ func ModelValidate(modelType interface{}, action int, data Map) []ErrorPlus {
 	errs := []ErrorPlus{}
 	isMongoEntity := TypeComposedOf(modelType, MongoEntity{})
 
+	// Any form keys of nature abc.def get properly
+	// exapnded into nested maps
+	data = data.ExpandDotKeys()
+
 	if isMongoEntity {
 		errs = append(errs, checkInsertableUpdatable(modelType, action, data)...)
 		errs = append(errs, provideDefualts(modelType, action, data)...)

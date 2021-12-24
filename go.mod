@@ -36,4 +36,19 @@ require (
 	github.com/asaskevich/govalidator v0.0.0-20210307081110-f21760c49a8d
 	github.com/azer/snakecase v1.0.0 // indirect
 	github.com/bugsnag/osext v0.0.0-20130617224835-0dd3f918b21b
+	github.com/rightjoin/fig v0.0.0-20210513182942-372e2ce25518
+)
+
+require (
+	github.com/BurntSushi/toml v0.3.1 // indirect
+	github.com/aws/aws-sdk-go v1.38.39 // indirect
+	github.com/jacobstr/confer v0.0.0-20160203043014-9a227d38758a // indirect
+	github.com/jmespath/go-jmespath v0.4.0 // indirect
+	github.com/kr/pretty v0.2.1 // indirect
+	github.com/kr/text v0.2.0 // indirect
+	github.com/serenize/snaker v0.0.0-20201027110005-a7ad2135616e // indirect
+	github.com/spf13/cast v1.3.1 // indirect
+	github.com/spf13/jwalterweatherman v1.1.0 // indirect
+	github.com/spf13/pflag v1.0.5 // indirect
+	gopkg.in/yaml.v2 v2.4.0 // indirect
 )

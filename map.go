@@ -2,6 +2,7 @@ package do
 
 import (
 	"fmt"
+	"strings"
 
 	"go.mongodb.org/mongo-driver/bson"
 )
@@ -67,4 +68,40 @@ func (m Map) GetOr(key string, defValue interface{}) interface{} {
 	} else {
 		return defValue
 	}
+}
+
+// If any key of the nature abc.def : 5 is
+// received, then this method returns a clone
+// with keys separated out -
+// abc : map[def] : 5
+func (m Map) ExpandDotKeys() Map {
+	if m == nil {
+		return nil
+	}
+	if len(m) == 0 {
+		return NewMap()
+	}
+
+	// TODO: this doesn't go recursive
+	// so need to check up on that
+
+	inMap := map[string]interface{}(m)
+	outMap := map[string]interface{}{}
+	for key, value := range inMap {
+		k := strings.Split(key, ".")
+		level := outMap
+		for i := 0; i < len(k); i++ {
+			nKey := k[i]
+			if _, ok := level[nKey]; !ok {
+				level[nKey] = map[string]interface{}{}
+			}
+			if i == len(k)-1 {
+				level[nKey] = value
+			} else {
+				level = level[nKey].(map[string]interface{})
+			}
+		}
+	}
+
+	return Map(outMap)
 }

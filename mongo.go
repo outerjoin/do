@@ -1,13 +1,10 @@
 package do
 
 import (
-	"context"
 	"reflect"
 	"strings"
 
 	"github.com/rightjoin/rutl/conv"
-	"github.com/rs/zerolog/log"
-	"go.mongodb.org/mongo-driver/mongo"
 )
 
 // Given a struct, or address of a struct, get the
@@ -32,10 +29,4 @@ func MongoCollectionName(model interface{}) string {
 	}
 
 	return strings.TrimSpace(conv.CaseSnake(t.Name()))
-}
-
-func CloseMongoClient(m *mongo.Client) {
-	if err := m.Disconnect(context.TODO()); err != nil {
-		log.Error().Msg("unable to close connection")
-	}
 }
