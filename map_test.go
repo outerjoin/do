@@ -19,7 +19,7 @@ func TestMapExapndDotKeys(t *testing.T) {
 	// no nesting
 	out = NewMapFromGoMap(map[string]interface{}{
 		"abc": "def",
-	}).ExpandDotKeys()
+	}).Unlevel()
 	assert.Equal(t, "def", out["abc"])
 
 	// 1 level of nesting
@@ -27,7 +27,7 @@ func TestMapExapndDotKeys(t *testing.T) {
 		"abc":     "def",
 		"qrs.tuv": "123",
 		"qrs.lmn": "456",
-	}).ExpandDotKeys()
+	}).Unlevel()
 	assert.Equal(t, "def", out["abc"])
 	inner1, ok := out["qrs"].(map[string]interface{})
 	assert.True(t, ok)
@@ -41,7 +41,7 @@ func TestMapExapndDotKeys(t *testing.T) {
 		"man.john.jacobs":  "22",
 		"man.john.fogarty": "33",
 		"man.don.bulls":    "44",
-	}).ExpandDotKeys()
+	}).Unlevel()
 	assert.Equal(t, "def", out["abc"])
 	inner2, ok := out["man"].(map[string]interface{})
 	assert.True(t, ok)

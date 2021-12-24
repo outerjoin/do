@@ -74,7 +74,7 @@ func (m Map) GetOr(key string, defValue interface{}) interface{} {
 // received, then this method returns a clone
 // with keys separated out -
 // abc : map[def] : 5
-func (m Map) ExpandDotKeys() Map {
+func (m Map) Unlevel() Map {
 	if m == nil {
 		return nil
 	}

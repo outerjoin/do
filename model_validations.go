@@ -81,6 +81,7 @@ func convertFieldType(modelType interface{}, action int, data Map) []ErrorPlus {
 }
 
 func populateTimedFields(modelType interface{}, action int, data Map) []ErrorPlus {
+
 	errs := []ErrorPlus{}
 	isMongoEntity := TypeComposedOf(modelType, MongoEntity{})
 
@@ -99,6 +100,7 @@ func populateTimedFields(modelType interface{}, action int, data Map) []ErrorPlu
 			data["updated_at"] = now
 		}
 	}
+
 	// 	return nil
 	// }
 	// StructWalk(modelType, WalkConfig{"json"}, data, setTimed)
@@ -201,7 +203,18 @@ func ModelValidate(modelType interface{}, action int, data Map) []ErrorPlus {
 
 	// Any form keys of nature abc.def get properly
 	// exapnded into nested maps
-	data = data.ExpandDotKeys()
+	// abc.def : k => abc : map[def] : k
+	{
+		newMap := data.Unlevel()
+
+		// Copy new map into data
+		for k := range data {
+			delete(data, k)
+		}
+		for k := range newMap {
+			data[k] = newMap[k]
+		}
+	}
 
 	if isMongoEntity {
 		errs = append(errs, checkInsertableUpdatable(modelType, action, data)...)
