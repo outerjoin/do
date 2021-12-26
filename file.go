@@ -61,3 +61,12 @@ func CleanFilePath(path string) string {
 	}
 	return doubleSlash.ReplaceAllString(path, "/")
 }
+
+var rxFileName = regexp.MustCompile("[^a-zA-Z0-9-_/.]+")
+
+// Remove spaces and better yet, all non-alphanumeric
+// characters from the filename. keeps it simple and avoids
+// some errors
+func CleanFileName(f string) string {
+	return rxFileName.ReplaceAllString(f, "")
+}

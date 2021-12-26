@@ -1,6 +1,10 @@
 package do
 
-import "strings"
+import (
+	"fmt"
+	"reflect"
+	"strings"
+)
 
 type CsvData [][]string
 
@@ -58,4 +62,36 @@ func (csv CsvData) CellByColumnPrefix(row int, prefix string) string {
 	}
 
 	return ""
+}
+
+func (csv CsvData) RowToMap(row int, modelOrType interface{}) (map[string]interface{}, []ErrorPlus) {
+
+	output := map[string]interface{}{}
+	outErrors := []ErrorPlus{}
+
+	csvToJson := func(fld reflect.StructField, data Map, keys ...string) []ErrorPlus {
+		fname := keys[len(keys)-1]
+		csvColumn := fld.Tag.Get("csv")
+
+		if csvColumn != "" {
+			val := csv.CellByColumnPrefix(row, csvColumn)
+			if val != "" {
+				v, err := ParseType(val, fld.Type)
+				if err == nil {
+					data[fname] = v
+				} else {
+					outErrors = append(outErrors, ErrorPlus{
+						Message: fmt.Sprintf("Could not parse cell value: %s", val),
+						Source:  fmt.Sprintf("Row%d:%s", row, csvColumn),
+					})
+				}
+			}
+		}
+
+		return nil
+	}
+
+	StructWalk(modelOrType, WalkConfig{"json"}, output, csvToJson)
+
+	return output, outErrors
 }

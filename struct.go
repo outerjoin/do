@@ -137,3 +137,28 @@ func structLoadTypeByKeys(fld reflect.StructField, prefix string, dest map[strin
 		}
 	}
 }
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+func StructFields(obj interface{}) []reflect.StructField {
+
+	var output = make([]reflect.StructField, 0)
+
+	stype := TypeOf(obj)
+	stype = TypeDereference(stype)
+
+	for i := 0; i < stype.NumField(); i++ {
+
+		fld := stype.Field(i)
+
+		isTime := TypeIsTime(fld.Type)
+
+		if fld.Type.Kind() == reflect.Struct && !isTime {
+			output = append(output, StructFields(fld)...)
+		} else {
+			output = append(output, fld)
+		}
+	}
+
+	return output
+}

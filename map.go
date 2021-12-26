@@ -105,3 +105,14 @@ func (m Map) Unlevel() Map {
 
 	return Map(outMap)
 }
+
+func (m Map) Clone() Map {
+
+	output := map[string]interface{}{}
+
+	for key, val := range m {
+		output[key] = val
+	}
+
+	return output
+}
