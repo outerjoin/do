@@ -166,7 +166,7 @@ func provideDefualts(modelType interface{}, action int, data Map) []ErrorPlus {
 	return errs
 }
 
-func checkInsertableUpdatable(modelType interface{}, action int, data Map) []ErrorPlus {
+func checkInsertableUpdatableDataInMap(modelType interface{}, action int, data Map) []ErrorPlus {
 	errs := []ErrorPlus{}
 
 	// Do validations for those fields wherein input fields are extra or
@@ -196,7 +196,36 @@ func checkInsertableUpdatable(modelType interface{}, action int, data Map) []Err
 	return errs
 }
 
-func ModelValidate(modelType interface{}, action int, data Map) []ErrorPlus {
+func customInsertUpdateChecks(modelType interface{}, action int, data Map) []ErrorPlus {
+
+	errs := []ErrorPlus{}
+
+	// Before Save Check
+	if savable, ok := modelType.(DBInsertableUpdatable); ok {
+		errs = append(errs, savable.BeforeSave(modelType, data)...)
+	}
+
+	// Before Insert Check
+	if action == DB_INSERT {
+		if ins, ok := modelType.(DBInsertable); ok {
+			errs = append(errs, ins.BeforeInsert(modelType, data)...)
+		}
+	}
+
+	// Before Update Check
+	if action == DB_UPDATE {
+		if upd, ok := modelType.(DBUpdatable); ok {
+			errs = append(errs, upd.BeforeUpdate(modelType, data)...)
+		}
+	}
+
+	// TODO:
+	// Do recursively on nested struct fields
+
+	return errs
+}
+
+func ModelValidateInputs(modelType interface{}, action int, data Map) []ErrorPlus {
 
 	errs := []ErrorPlus{}
 	isMongoEntity := TypeComposedOf(modelType, MongoEntity{})
@@ -217,13 +246,18 @@ func ModelValidate(modelType interface{}, action int, data Map) []ErrorPlus {
 	}
 
 	if isMongoEntity {
-		errs = append(errs, checkInsertableUpdatable(modelType, action, data)...)
+		errs = append(errs, checkInsertableUpdatableDataInMap(modelType, action, data)...)
 		errs = append(errs, provideDefualts(modelType, action, data)...)
 		errs = append(errs, trimFields(modelType, action, data)...)
 		errs = append(errs, populateTimedFields(modelType, action, data)...)
 		errs = append(errs, populateAutoFields(modelType, action, data)...)
-		errs = append(errs, convertFieldType(modelType, action, data)...)
+		{
+			// field conversion from str to int/string/etc wherever appropriate
+			errs = append(errs, convertFieldType(modelType, action, data)...)
+		}
+		// Post field type conversion - do verification and custom checks
 		errs = append(errs, verifyInputs(modelType, action, data)...)
+		errs = append(errs, customInsertUpdateChecks(modelType, action, data)...)
 	}
 
 	return errs
@@ -365,4 +399,20 @@ func parseAutoField(f reflect.StructField) *autoField {
 	}
 
 	return &af
+}
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+func ModelValidateObject(object interface{}) []ErrorPlus {
+	errs := []ErrorPlus{}
+
+	if serialize, ok := object.(DBSerialize); ok {
+		errs = append(errs, serialize.AfterSave(object)...)
+	}
+
+	// TODO:
+	// recursively execute DBSerialize.AfterSave on
+	// all nested structs of type DBSerialize
+
+	return errs
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/k0kubun/pp"
 	"github.com/rightjoin/fig"
 	"github.com/rs/zerolog/log"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -39,6 +40,10 @@ func (mc *MongoConnect) CloseClient() {
 
 func (mc *MongoConnect) Client() *mongo.Client {
 
+	if mc.client != nil {
+		return mc.client
+	}
+
 	client, err := mongo.Connect(context.TODO(), options.Client().ApplyURI(mc.ConnStr))
 	if err != nil {
 		log.Error().
@@ -47,7 +52,8 @@ func (mc *MongoConnect) Client() *mongo.Client {
 			Msg("unable to open connection")
 		return nil
 	}
-	return client
+	mc.client = client
+	return mc.client
 }
 
 func (mc *MongoConnect) Database() *mongo.Database {
@@ -72,4 +78,129 @@ func (mc *MongoConnect) Collection(model ...interface{}) *mongo.Collection {
 	} else {
 		return mc.Database().Collection(fmt.Sprintf("%s-%s", coll, mc.CollSuffix))
 	}
+}
+
+func (mc *MongoConnect) Query(model interface{}, addrSlice interface{}, opt QueryOptions) (int, error) {
+
+	if !opt.Paginate {
+		cursor, err := mc.Collection(model).Find(context.Background(), opt.Query, &options.FindOptions{
+			Skip:  P_int64(int64(opt.Skip)),
+			Limit: P_int64(int64(opt.Limit)),
+			Sort:  opt.Sort,
+		})
+		if err != nil {
+			return 0, err
+		}
+
+		err = cursor.All(context.Background(), addrSlice)
+		if err != nil {
+			return 0, err
+		}
+
+		// TODO: how to count
+		return 0, nil
+	}
+
+	// Find total number of records in DB
+	total, err := mc.Collection(model).CountDocuments(context.Background(), opt.Query)
+	if err != nil {
+		pp.Println("01")
+		return 0, err
+	}
+
+	if opt.Page <= 0 {
+		opt.Page = 1
+	}
+	max := fig.IntOr(25, "pagination.chunk")
+	if opt.Chunk < 1 || opt.Chunk > max {
+		opt.Chunk = max
+	}
+
+	// Find records
+	cursor, err := mc.Collection(model).Find(context.Background(), opt.Query, &options.FindOptions{
+		Skip:  P_int64(int64((opt.Page - 1) * opt.Chunk)),
+		Limit: P_int64(int64(opt.Limit)),
+		Sort:  opt.Sort,
+	})
+	if err != nil {
+		pp.Println("02")
+		return 0, err
+	}
+
+	err = cursor.All(context.Background(), addrSlice)
+	if err != nil {
+		return 0, err
+	}
+
+	return int(total), nil
+}
+
+type QueryOptions struct {
+	Query interface{}
+	Sort  interface{}
+	Skip  int
+	Limit int
+
+	// When Paginate EQ true, then 'skip' and 'limit' are
+	// essentially ignored. Otherwise 'page' and 'chunk'
+	// get ignored
+	Paginate bool
+	Page     int
+	Chunk    int
+}
+
+func (mc *MongoConnect) Transactionally(doAction func(sessCtx mongo.SessionContext) error) error {
+
+	// Session
+	session, err := mc.Client().StartSession()
+	if err != nil {
+		return err
+	}
+	defer session.EndSession(context.Background())
+
+	err = mongo.WithSession(context.Background(), session, func(sessCtx mongo.SessionContext) error {
+
+		var output error
+
+		// Start the transaction
+		if output = session.StartTransaction(); output != nil {
+			return output
+		}
+
+		// Do the work
+		output = doAction(sessCtx)
+		if output != nil {
+			return output
+		}
+
+		// Commit the transaction
+		if output = session.CommitTransaction(sessCtx); output != nil {
+			return output
+		}
+
+		return nil
+	})
+	if err != nil {
+		abortErr := session.AbortTransaction(context.Background())
+		if abortErr != nil {
+			// TODO: log abort error
+		}
+		return err
+	}
+
+	return nil
+}
+
+func (mc *MongoConnect) Insert(addrObject interface{}, inputs Map) []ErrorPlus {
+
+	output := []ErrorPlus{}
+
+	// Validate inputs for validation errors before sending
+	// inputs to database
+	errors := ModelValidateInputs(addrObject, DB_INSERT, inputs)
+	if len(errors) > 0 {
+		return errors
+	}
+
+	return output
 }

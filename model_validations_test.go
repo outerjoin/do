@@ -16,14 +16,14 @@ func TestInsertableChecks(t *testing.T) {
 		a := struct {
 			Field1 string `insert:"no"`
 		}{}
-		errs2 := checkInsertableUpdatable(a, DB_INSERT, map[string]interface{}{"field1": "abc"})
+		errs2 := checkInsertableUpdatableDataInMap(a, DB_INSERT, map[string]interface{}{"field1": "abc"})
 		assert.Equal(t, 1, len(errs2))
 		assert.Equal(t, "field1", errs2[0].Source)
 
 		// And this works even if you pass
 		// the address of struct
 		{
-			errs2 = checkInsertableUpdatable(&a, DB_INSERT, map[string]interface{}{"field1": "abc"})
+			errs2 = checkInsertableUpdatableDataInMap(&a, DB_INSERT, map[string]interface{}{"field1": "abc"})
 			assert.Equal(t, 1, len(errs2))
 			assert.Equal(t, "field1", errs2[0].Source)
 		}
@@ -38,14 +38,14 @@ func TestInsertableChecks(t *testing.T) {
 				Field1 string `insert:"no"`
 			}
 		}{}
-		errs2 := checkInsertableUpdatable(b, DB_INSERT, map[string]interface{}{"field_a": map[string]interface{}{"field1": "abc"}})
+		errs2 := checkInsertableUpdatableDataInMap(b, DB_INSERT, map[string]interface{}{"field_a": map[string]interface{}{"field1": "abc"}})
 		assert.Equal(t, 1, len(errs2))
 		assert.Equal(t, "field_a.field1", errs2[0].Source)
 
 		// And this works even if you pass
 		// the address of struct
 		{
-			errs2 := checkInsertableUpdatable(&b, DB_INSERT, map[string]interface{}{"field_a": map[string]interface{}{"field1": "abc"}})
+			errs2 := checkInsertableUpdatableDataInMap(&b, DB_INSERT, map[string]interface{}{"field_a": map[string]interface{}{"field1": "abc"}})
 			assert.Equal(t, 1, len(errs2))
 			assert.Equal(t, "field_a.field1", errs2[0].Source)
 		}
@@ -60,14 +60,14 @@ func TestInsertableChecks(t *testing.T) {
 				Field1 string `insert:"no"`
 			}
 		}{}
-		errs2 := checkInsertableUpdatable(c, DB_INSERT, map[string]interface{}{"field_b": map[string]interface{}{"field1": "abc"}})
+		errs2 := checkInsertableUpdatableDataInMap(c, DB_INSERT, map[string]interface{}{"field_b": map[string]interface{}{"field1": "abc"}})
 		assert.Equal(t, 1, len(errs2))
 		assert.Equal(t, "field_b.field1", errs2[0].Source)
 
 		// And this works even if you pass
 		// the address of struct
 		{
-			errs2 := checkInsertableUpdatable(&c, DB_INSERT, map[string]interface{}{"field_b": map[string]interface{}{"field1": "abc"}})
+			errs2 := checkInsertableUpdatableDataInMap(&c, DB_INSERT, map[string]interface{}{"field_b": map[string]interface{}{"field1": "abc"}})
 			assert.Equal(t, 1, len(errs2))
 			assert.Equal(t, "field_b.field1", errs2[0].Source)
 		}
@@ -79,13 +79,13 @@ func TestInsertableChecks(t *testing.T) {
 		a := struct {
 			Field1 string `insert:"yes"`
 		}{}
-		errs := checkInsertableUpdatable(a, DB_INSERT, map[string]interface{}{})
+		errs := checkInsertableUpdatableDataInMap(a, DB_INSERT, map[string]interface{}{})
 		assert.Equal(t, 1, len(errs))
 		assert.Equal(t, "field1", errs[0].Source)
 
 		// Errors go away wnen data is provided
 		{
-			errs := checkInsertableUpdatable(a, DB_INSERT, map[string]interface{}{"field1": "abc"})
+			errs := checkInsertableUpdatableDataInMap(a, DB_INSERT, map[string]interface{}{"field1": "abc"})
 			assert.Equal(t, 0, len(errs))
 		}
 	}
@@ -99,13 +99,13 @@ func TestInsertableChecks(t *testing.T) {
 				Field1 string `insert:"yes"`
 			}
 		}{}
-		errs := checkInsertableUpdatable(a, DB_INSERT, map[string]interface{}{})
+		errs := checkInsertableUpdatableDataInMap(a, DB_INSERT, map[string]interface{}{})
 		assert.Equal(t, 1, len(errs))
 		assert.Equal(t, "field_a.field1", errs[0].Source)
 
 		// Errors go away wnen data is provided
 		{
-			errs := checkInsertableUpdatable(a, DB_INSERT, map[string]interface{}{"field_a": map[string]interface{}{"field1": "abc"}})
+			errs := checkInsertableUpdatableDataInMap(a, DB_INSERT, map[string]interface{}{"field_a": map[string]interface{}{"field1": "abc"}})
 			assert.Equal(t, 0, len(errs))
 		}
 	}
@@ -116,7 +116,7 @@ func TestInsertableChecks(t *testing.T) {
 		a := struct {
 			Field1 string `insert:"opt"`
 		}{}
-		errs := checkInsertableUpdatable(a, DB_INSERT, map[string]interface{}{})
+		errs := checkInsertableUpdatableDataInMap(a, DB_INSERT, map[string]interface{}{})
 		assert.Equal(t, 0, len(errs))
 	}
 
@@ -125,7 +125,7 @@ func TestInsertableChecks(t *testing.T) {
 		a := struct {
 			Field1 string /*`insert:"opt"`*/
 		}{}
-		errs := checkInsertableUpdatable(a, DB_INSERT, map[string]interface{}{})
+		errs := checkInsertableUpdatableDataInMap(a, DB_INSERT, map[string]interface{}{})
 		assert.Equal(t, 0, len(errs))
 	}
 }
@@ -138,7 +138,7 @@ func TestInsertFieldUpdateAction(t *testing.T) {
 		a := struct {
 			Field1 string `insert:"no"`
 		}{}
-		errs := checkInsertableUpdatable(a, DB_UPDATE, map[string]interface{}{"field1": "abc"})
+		errs := checkInsertableUpdatableDataInMap(a, DB_UPDATE, map[string]interface{}{"field1": "abc"})
 		assert.Equal(t, 0, len(errs))
 	}
 }
