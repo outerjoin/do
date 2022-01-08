@@ -7,6 +7,7 @@ import (
 	"github.com/k0kubun/pp"
 	"github.com/rightjoin/fig"
 	"github.com/rs/zerolog/log"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -119,7 +120,7 @@ func (mc *MongoConnect) Query(model interface{}, addrSlice interface{}, opt Quer
 	// Find records
 	cursor, err := mc.Collection(model).Find(context.Background(), opt.Query, &options.FindOptions{
 		Skip:  P_int64(int64((opt.Page - 1) * opt.Chunk)),
-		Limit: P_int64(int64(opt.Limit)),
+		Limit: P_int64(int64(opt.Chunk)),
 		Sort:  opt.Sort,
 	})
 	if err != nil {
@@ -193,14 +194,38 @@ func (mc *MongoConnect) Transactionally(doAction func(sessCtx mongo.SessionConte
 
 func (mc *MongoConnect) Insert(addrObject interface{}, inputs Map) []ErrorPlus {
 
-	output := []ErrorPlus{}
-
 	// Validate inputs for validation errors before sending
-	// inputs to database
+	// inputs to DB
 	errors := ModelValidateInputs(addrObject, DB_INSERT, inputs)
 	if len(errors) > 0 {
 		return errors
 	}
 
-	return output
+	err := mc.Transactionally(func(sessCtx mongo.SessionContext) error {
+
+		// Insert
+		result, err := mc.Collection(addrObject).InsertOne(sessCtx, inputs)
+		if err != nil {
+			return err
+		}
+
+		// Read
+		err = mc.Collection(addrObject).FindOne(sessCtx, bson.M{"_id": result.InsertedID}).Decode(addrObject)
+		if err != nil {
+			return err
+		}
+
+		// Validate post inserting to DB
+		errs := ModelValidateObject(addrObject)
+		if len(errs) > 0 {
+			return errs[0]
+		}
+
+		return nil
+	})
+	if err != nil {
+		return []ErrorPlus{{Message: err.Error()}}
+	}
+
+	return []ErrorPlus{}
 }
