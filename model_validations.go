@@ -27,6 +27,52 @@ import (
 	[Recursive: ??]
 */
 
+func correctInitalState(modelType interface{}, action int, data Map) []ErrorPlus {
+	errs := []ErrorPlus{}
+
+	// Initial state must open be checked during INSERTS only
+	if action != DB_INSERT {
+		return errs
+	}
+
+	mt := TypeOf(modelType)
+	mt = TypeDereference(mt)
+
+	wc := WalkConfig{"json"}
+
+	for i := 0; i < mt.NumField(); i++ {
+		ft := mt.Field(i)
+		fkey := wc.FieldKey(ft)
+		fsm, _ := ParseType(ft.Tag.Get("state_machine"), reflect.TypeOf(false))
+		if fsm.(bool) {
+			// force string
+			if data.HasKey(fkey) {
+				data[fkey] = fmt.Sprint(data[fkey])
+			}
+
+			sm := getStateMachine(MongoCollectionName(modelType), fkey)
+			if sm == nil {
+				errs = append(errs, ErrorPlus{
+					Message: "no state machine found",
+					Source:  fkey,
+				})
+			} else {
+				if !data.HasKey(fkey) {
+					data[fkey] = sm.DefaultState
+				} else {
+					if !sm.CanStartWith(data[fkey].(string)) {
+						errs = append(errs, ErrorPlus{
+							Message: fmt.Sprintf("given state (%s) is not a valid start state", data[fkey]),
+							Source:  fkey,
+						})
+					}
+				}
+			}
+		}
+	}
+	return errs
+}
+
 func verifyInputs(modelType interface{}, action int, data Map) []ErrorPlus {
 	errs := []ErrorPlus{}
 
@@ -251,6 +297,7 @@ func ModelValidateInputs(modelType interface{}, action int, data Map) []ErrorPlu
 		errs = append(errs, trimFields(modelType, action, data)...)
 		errs = append(errs, populateTimedFields(modelType, action, data)...)
 		errs = append(errs, populateAutoFields(modelType, action, data)...)
+		errs = append(errs, correctInitalState(modelType, action, data)...)
 		{
 			// field conversion from str to int/string/etc wherever appropriate
 			errs = append(errs, convertFieldType(modelType, action, data)...)
