@@ -2,7 +2,9 @@ package do
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"reflect"
 
 	"github.com/k0kubun/pp"
 	"github.com/rightjoin/fig"
@@ -81,7 +83,15 @@ func (mc *MongoConnect) Collection(model ...interface{}) *mongo.Collection {
 	}
 }
 
-func (mc *MongoConnect) Query(model interface{}, addrSlice interface{}, opt QueryOptions) (int, error) {
+func (mc *MongoConnect) Query(model interface{}, addrSlice interface{}, opts ...QueryOptions) (int, error) {
+
+	var opt = QueryOptions{
+		Query: bson.D{},
+		Sort:  bson.M{},
+	}
+	if len(opts) != 0 {
+		opt = opts[0]
+	}
 
 	if !opt.Paginate {
 		cursor, err := mc.Collection(model).Find(context.Background(), opt.Query, &options.FindOptions{
@@ -192,7 +202,7 @@ func (mc *MongoConnect) Transactionally(doAction func(sessCtx mongo.SessionConte
 	return nil
 }
 
-func (mc *MongoConnect) Insert(addrObject interface{}, inputs Map) []ErrorPlus {
+func (mc *MongoConnect) InsertForm(addrObject interface{}, inputs Map, sessCtx ...mongo.SessionContext) []ErrorPlus {
 
 	// Validate inputs for validation errors before sending
 	// inputs to DB
@@ -201,7 +211,9 @@ func (mc *MongoConnect) Insert(addrObject interface{}, inputs Map) []ErrorPlus {
 		return errors
 	}
 
-	err := mc.Transactionally(func(sessCtx mongo.SessionContext) error {
+	var manyErrs []ErrorPlus
+	var err error
+	fn := func(sessCtx mongo.SessionContext) error {
 
 		// Insert
 		result, err := mc.Collection(addrObject).InsertOne(sessCtx, inputs)
@@ -216,15 +228,189 @@ func (mc *MongoConnect) Insert(addrObject interface{}, inputs Map) []ErrorPlus {
 		}
 
 		// Validate post inserting to DB
-		errs := ModelValidateObject(addrObject)
-		if len(errs) > 0 {
-			return errs[0]
+		manyErrs = ModelValidateObject(addrObject)
+		if len(manyErrs) > 0 {
+			return manyErrs[0]
 		}
 
 		return nil
-	})
+	}
+
+	// If there is already a context available
+	// then run it under it.
+	// Otherwise, start a new transaction.
+	if len(sessCtx) > 0 {
+		err = fn(sessCtx[0])
+	} else {
+		err = mc.Transactionally(fn)
+	}
+
+	if err != nil {
+		if manyErrs != nil && len(manyErrs) > 0 && manyErrs[0] == err {
+			return manyErrs
+		} else {
+			return []ErrorPlus{{Message: err.Error()}}
+		}
+	}
+
+	return []ErrorPlus{}
+}
+
+func (mc *MongoConnect) InsertObject(addrObject interface{}, object interface{}, sessCtx ...mongo.SessionContext) []ErrorPlus {
+
+	// Encode object (data passed) into map
+	b, err := json.Marshal(object)
 	if err != nil {
 		return []ErrorPlus{{Message: err.Error()}}
+	}
+
+	// Populate a map from json bytes
+	data := map[string]interface{}{}
+	err = json.Unmarshal(b, &data)
+	if err != nil {
+		return []ErrorPlus{{Message: err.Error()}}
+	}
+
+	// Remove any "auto" keys from this map
+	ot := TypeOf(addrObject)
+	ot = TypeDereference(ot)
+	wc := WalkConfig{Tag: "json"}
+	for i := 0; i < ot.NumField(); i++ {
+		ft := ot.Field(i)
+		if ft.Tag.Get("auto") != "" {
+			delete(data, wc.FieldKey(ft))
+		}
+	}
+
+	// Pass on this map to InsertForm to write to DB
+	// after performing necessary Validations()
+	return mc.InsertForm(addrObject, data, sessCtx...)
+}
+
+func (mc *MongoConnect) UpdateForm(addrObject interface{}, queryOne bson.D, inputs Map, sessCtx ...mongo.SessionContext) []ErrorPlus {
+
+	// Validate inputs for validation errors before sending
+	// inputs to DB
+	errors := ModelValidateInputs(addrObject, DB_UPDATE, inputs)
+	if len(errors) > 0 {
+		return errors
+	}
+
+	// Are any of StateMachine fields being changed?
+	coll := MongoCollectionName(addrObject)
+	smFields := StateMachine{}.GetStateMachineFieldNames(addrObject)
+	smFieldChanged := false
+	for _, f := range smFields {
+		if inputs.HasKey(f) {
+			smFieldChanged = true
+			break
+		}
+	}
+
+	var manyErrs []ErrorPlus
+	var err error
+	smPreValues := map[string]string{}
+
+	fn := func(sessCtx mongo.SessionContext) error {
+
+		// If state machine field is changed, then we need to
+		// fetcht the previous state of object as well
+		if smFieldChanged {
+			err := mc.Collection(addrObject).FindOne(sessCtx, queryOne).Decode(addrObject)
+			if err != nil {
+				return err
+			}
+
+			// Object to []byte
+			b, err := json.Marshal(reflect.ValueOf(addrObject).Elem().Interface())
+			if err != nil {
+				return err
+			}
+
+			// []byte to map
+			var objMap map[string]interface{}
+			err = json.Unmarshal(b, &objMap)
+			if err != nil {
+				return err
+			}
+
+			// Loop map and save values of state machine fields before
+			// update is made
+			for _, f := range smFields {
+				if pre, ok := objMap[f]; ok {
+					smPreValues[f] = pre.(string)
+				}
+			}
+		}
+
+		// Update
+		_, err := mc.Collection(addrObject).UpdateOne(sessCtx, queryOne, map[string]interface{}{"$set": inputs})
+		if err != nil {
+			return err
+		}
+		// TODO: matched count and modified count check??
+
+		// Read again (after update)
+		err = mc.Collection(addrObject).FindOne(sessCtx, queryOne).Decode(addrObject)
+		if err != nil {
+			return err
+		}
+
+		// Validate post inserting to DB
+		manyErrs = ModelValidateObject(addrObject)
+		if len(manyErrs) > 0 {
+			return manyErrs[0]
+		}
+
+		if smFieldChanged {
+			// Object to []byte
+			b, err := json.Marshal(reflect.ValueOf(addrObject).Elem().Interface())
+			if err != nil {
+				return err
+			}
+
+			// []byte to map
+			var objMap map[string]interface{}
+			err = json.Unmarshal(b, &objMap)
+			if err != nil {
+				return err
+			}
+
+			// See which state machine field has chagned, and
+			// if its a valid transition
+			for _, f := range smFields {
+				if post, ok := objMap[f]; ok {
+					if post.(string) != smPreValues[f] {
+						sm := getStateMachine(coll, f)
+						if sm == nil {
+							// TODO: Error
+							return fmt.Errorf("no state machine found %s.%s", coll, f)
+						} else if !sm.CanMove(smPreValues[f], post.(string)) {
+							return fmt.Errorf("invalid state transition (%s) from %s to %s", f, smPreValues[f], post)
+						}
+					}
+				}
+			}
+		}
+
+		return nil
+	}
+
+	// If there is already a context available
+	// then run it under it.
+	// Otherwise, start a new transaction.
+	if len(sessCtx) > 0 {
+		err = fn(sessCtx[0])
+	} else {
+		err = mc.Transactionally(fn)
+	}
+
+	if err != nil {
+		if manyErrs != nil && len(manyErrs) > 0 && manyErrs[0] == err {
+			return manyErrs
+		} else {
+			return []ErrorPlus{{Message: err.Error()}}
+		}
 	}
 
 	return []ErrorPlus{}

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/asaskevich/govalidator"
+	"github.com/k0kubun/pp"
 	"github.com/rightjoin/rutl/conv"
 )
 
@@ -35,41 +36,35 @@ func correctInitalState(modelType interface{}, action int, data Map) []ErrorPlus
 		return errs
 	}
 
-	mt := TypeOf(modelType)
-	mt = TypeDereference(mt)
+	coll := MongoCollectionName(modelType)
+	fields := StateMachine{}.GetStateMachineFieldNames(modelType)
 
-	wc := WalkConfig{"json"}
-
-	for i := 0; i < mt.NumField(); i++ {
-		ft := mt.Field(i)
-		fkey := wc.FieldKey(ft)
-		fsm, _ := ParseType(ft.Tag.Get("state_machine"), reflect.TypeOf(false))
-		if fsm.(bool) {
-			// force string
-			if data.HasKey(fkey) {
-				data[fkey] = fmt.Sprint(data[fkey])
-			}
-
-			sm := getStateMachine(MongoCollectionName(modelType), fkey)
-			if sm == nil {
+	for _, f := range fields {
+		sm := getStateMachine(coll, f)
+		if sm == nil {
+			errs = append(errs, ErrorPlus{
+				Message: "no state machine found",
+				Source:  f,
+			})
+		} else {
+			state := data[f].(string)
+			if !data.HasKey(f) {
+				data[f] = sm.DefaultState
+			} else if state == "" {
 				errs = append(errs, ErrorPlus{
-					Message: "no state machine found",
-					Source:  fkey,
+					Message: "empty start state",
+					Source:  f,
 				})
-			} else {
-				if !data.HasKey(fkey) {
-					data[fkey] = sm.DefaultState
-				} else {
-					if !sm.CanStartWith(data[fkey].(string)) {
-						errs = append(errs, ErrorPlus{
-							Message: fmt.Sprintf("given state (%s) is not a valid start state", data[fkey]),
-							Source:  fkey,
-						})
-					}
-				}
+			} else if !sm.CanStartWith(state) {
+				errs = append(errs, ErrorPlus{
+					Message: fmt.Sprintf("given state (%s) is not a valid start state", data[f]),
+					Source:  f,
+				})
 			}
 		}
+
 	}
+
 	return errs
 }
 
@@ -306,6 +301,8 @@ func ModelValidateInputs(modelType interface{}, action int, data Map) []ErrorPlu
 		errs = append(errs, verifyInputs(modelType, action, data)...)
 		errs = append(errs, customInsertUpdateChecks(modelType, action, data)...)
 	}
+
+	pp.Println("@", data)
 
 	return errs
 }

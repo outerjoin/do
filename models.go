@@ -2,6 +2,7 @@ package do
 
 import (
 	"fmt"
+	"reflect"
 	"time"
 )
 
@@ -105,6 +106,27 @@ func (sm StateMachine) CanMove(from, to string) bool {
 	}
 
 	return false
+}
+
+func (sm StateMachine) GetStateMachineFieldNames(obj interface{}) []string {
+	output := []string{}
+
+	mt := TypeOf(obj)
+	mt = TypeDereference(mt)
+
+	wc := WalkConfig{"json"}
+	booltype := reflect.TypeOf(false)
+
+	for i := 0; i < mt.NumField(); i++ {
+		ft := mt.Field(i)
+		fkey := wc.FieldKey(ft)
+		fsm, _ := ParseType(ft.Tag.Get("state_machine"), booltype)
+		if fsm.(bool) {
+			output = append(output, fkey)
+		}
+	}
+
+	return output
 }
 
 type StateMachineMovement struct {
