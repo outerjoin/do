@@ -287,7 +287,7 @@ func (mc *MongoConnect) InsertObject(addrObject interface{}, object interface{},
 	return mc.InsertForm(addrObject, data, sessCtx...)
 }
 
-func (mc *MongoConnect) UpdateForm(addrObject interface{}, queryOne bson.D, inputs Map, sessCtx ...mongo.SessionContext) []ErrorPlus {
+func (mc *MongoConnect) UpdateForm(addrObject interface{}, queryOne interface{}, inputs Map, sessCtx ...mongo.SessionContext) []ErrorPlus {
 
 	// Validate inputs for validation errors before sending
 	// inputs to DB
