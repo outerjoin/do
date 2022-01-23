@@ -302,7 +302,7 @@ func ModelValidateInputs(modelType interface{}, action int, data Map) []ErrorPlu
 		errs = append(errs, customInsertUpdateChecks(modelType, action, data)...)
 	}
 
-	pp.Println("@", data)
+	pp.Println("ModelValidateInputs@", data)
 
 	return errs
 }

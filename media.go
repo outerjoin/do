@@ -4,6 +4,9 @@ import (
 	"bytes"
 	"fmt"
 	"image"
+	_ "image/gif" // necessary image formats
+	_ "image/jpeg"
+	_ "image/png"
 	"io"
 	"net/http"
 	"os"
@@ -84,7 +87,13 @@ func NewMedia(webContext interface{}, referenceStructOrStr interface{}, formInpu
 		// DB fields
 		Buffer:    b,
 		Reference: prefix,
-		Extn:      filepath.Ext(path[1:]),
+		Extn: func() string {
+			ext := filepath.Ext(path)
+			if len(ext) > 1 {
+				return ext[1:]
+			}
+			return ext
+		}(),
 	}, nil
 }
 
@@ -101,7 +110,7 @@ type Media struct {
 	Buffer    bytes.Buffer `bson:"-" json:"-"`
 	Reference string       `bson:"reference" json:"-"` // what object does this file contextually belong to
 	Extn      string       `bson:"extn" json:"-"`      // file extension
-	Timed     `bson:"inline" json:"-"`
+	//Timed     `bson:"inline" json:"-"`
 }
 
 func (m Media) Serialize() error {
